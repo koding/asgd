@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -10,28 +9,38 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/koding/asgd"
 	"github.com/koding/logging"
+	"github.com/koding/multiconfig"
 )
 
 const Name = "asgd"
 
 func main() {
-	conf, err := asgd.Configure()
+
+	conf := &asgd.Config{}
+	mc := multiconfig.New()
+	mc.Loader = multiconfig.MultiLoader(
+		&multiconfig.TagLoader{},
+		&multiconfig.EnvironmentLoader{},
+		&multiconfig.EnvironmentLoader{Prefix: "ASGD"},
+		&multiconfig.FlagLoader{},
+	)
+
+	mc.MustLoad(conf)
+
+	session, err := asgd.Configure(conf)
 	if err != nil {
 		log.Fatal("Reading config failed: ", err.Error())
 	}
-
-	// system name defines all resource names
-	systemName := fmt.Sprintf("%s-%s", "asgd", conf.Name)
 
 	log := logging.NewCustom(Name, conf.Debug)
 	// remove formatting from call stack and output correct line
 	log.SetCallDepth(1)
 
 	// create lifecycle
-	l := asgd.NewLifeCycle(conf.Session, log, conf.AutoScalingName)
+	l := asgd.NewLifeCycle(session, log, conf.AutoScalingName)
 
 	// configure lifecycle with system name
-	if err := l.Configure(systemName); err != nil {
+	if err := l.Configure(conf.Name); err != nil {
 		log.Fatal(err.Error())
 	}
 
