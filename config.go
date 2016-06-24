@@ -14,6 +14,7 @@ import (
 
 // Config holds configuration parameters for asgd
 type Config struct {
+	Name    string `required:"true"`
 	Session *awssession.Session
 
 	// required
