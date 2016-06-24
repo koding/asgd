@@ -9,17 +9,15 @@ import (
 	awssession "github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/koding/ec2dynamicdata"
-	"github.com/koding/multiconfig"
 )
 
 // Config holds configuration parameters for asgd
 type Config struct {
-	Name    string `required:"true"`
-	Session *awssession.Session
+	Name string
 
 	// required
-	AccessKeyID     string `required:"true"`
-	SecretAccessKey string `required:"true"`
+	AccessKeyID     string
+	SecretAccessKey string
 
 	// can be overriden
 	Region          string
@@ -30,18 +28,10 @@ type Config struct {
 }
 
 // Configure prepares configuration data for tunnelproxy manager
-func Configure() (*Config, error) {
-	c := &Config{}
-
-	mc := multiconfig.New()
-	mc.Loader = multiconfig.MultiLoader(
-		&multiconfig.TagLoader{},
-		&multiconfig.EnvironmentLoader{},
-		&multiconfig.EnvironmentLoader{Prefix: "ASGD"},
-		&multiconfig.FlagLoader{},
-	)
-
-	mc.MustLoad(c)
+func Configure(c *Config) (*awssession.Session, error) {
+	if c.Name == "" {
+		return nil, errors.New("Name should be set.")
+	}
 
 	// decide on region name
 	region, err := getRegion(c)
@@ -51,7 +41,7 @@ func Configure() (*Config, error) {
 
 	c.Region = region
 
-	c.Session = awssession.New(&aws.Config{
+	session := awssession.New(&aws.Config{
 		Credentials: credentials.NewStaticCredentials(
 			c.AccessKeyID,
 			c.SecretAccessKey,
@@ -62,13 +52,13 @@ func Configure() (*Config, error) {
 	})
 
 	// decide on autoscaling name
-	name, err := getAutoScalingName(c, c.Session)
+	name, err := getAutoScalingName(c, session)
 	if err != nil {
 		return nil, err
 	}
 
 	c.AutoScalingName = name
-	return c, nil
+	return session, nil
 }
 
 // getRegion checks if region name is given in config, if not tries to get it
